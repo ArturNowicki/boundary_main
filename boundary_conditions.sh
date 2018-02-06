@@ -8,19 +8,41 @@ err_f_write=103
 err_f_close=104
 err_memory_alloc=105
 
-kmt_file='../../data/grids/2km/kmt_2km.ieeer8'
-angle_file1='../../data/grids/2km/anglet_2km.ieeer8'
-thickness_file='../../data/grids/2km/thickness_2km_600x640.txt'
+input_parameters_path='../../data/grids/2km/'
+kmt_file=${input_parameters_path}'kmt_2km.ieeer8'
+angle_file1=${input_parameters_path}'anglet_2km.ieeer8'
+thickness_file=${input_parameters_path}'thickness_2km_600x640.txt'
 
 in_model_nc_prefix='hydro.pop.h.'
 x_in=600
 y_in=640
 z_in=21
 
-nc_in_dir='../../data/boundary_conditions/tmp_in_data/'
-bin_tmp_dir='../../data/boundary_conditions/tmp_bin_data/'
-bin_spread_dir='../../data/boundary_conditions/spread_data/'
-bin_out_dir='../../data/boundary_conditions/out_data/'
+data_path='../../data/boundary_conditions/'
+nc_in_dir=${data_path}'tmp_in_data/'
+bin_tmp_dir=${data_path}'tmp_bin_data/'
+bin_spread_dir=${data_path}'spread_data/'
+bin_out_dir=${data_path}'out_data/'
+
+function make_dir {
+	if [[ ! -d $1 ]]; then
+		mkdir $1
+		if [[ $? -ne 0 ]]; then
+			exit
+		fi
+	fi
+
+}
+
+if [[ ! -d ${nc_in_dir} ]]; then
+	echo "WRONG INPUT DIRECTORY!!!"
+	echo ${nc_in_dir}
+	exit
+fi
+make_dir ${bin_tmp_dir}
+make_dir ${bin_spread_dir}
+make_dir ${bin_out_dir}
+
 parameters_list=( 'TEMP' 'SALT' 'UVEL' 'VVEL' 'SSH')
 params_to_avg_in=( 'UVEL' 'VVEL')
 params_to_avg_out=( 'SU' 'SV')
@@ -61,6 +83,9 @@ else
 			do
 			echo ${parameter_name}
 			# ./netcdf_to_bin ${in_fpath} ${parameter_name} ${date_time} ${bin_tmp_dir}
+			if [ $? -ne 0 ]; then
+				exit
+			fi
 		done
 	done
 	echo "Calculate SU and SV"
@@ -74,12 +99,18 @@ else
 			echo "-------------------"
 			echo ${in_file} ${out_file}
 			# ./average_over_depth ${bin_tmp_dir} ${in_file} ${out_file} ${thickness_file} ${kmt_file}
+			if [ $? -ne 0 ]; then
+				exit
+			fi
 		done
 	done
 	echo "Rotate SU and SV"
 	for in_file1 in ${bin_tmp_dir}*${params_to_avg_out}*; do
 		in_file2="${in_file1/${params_to_avg_out[0]}/${params_to_avg_out[1]}}"
 		# ./rotate_vector_matrix ${in_file1} ${in_file2} ${in_file1} ${in_file2} ${angle_file1}
+		if [ $? -ne 0 ]; then
+			exit
+		fi
 	done
 	for var_name in ${params_to_avg_in[@]}; do
 		rm ${bin_tmp_dir}*$var_name*
@@ -90,6 +121,9 @@ else
 		echo ${out_file}
 		z_dim_str=${out_file:(-16):4}
 		let z_dim=10#${z_dim_str}
-		./poisson_solver ${in_file} ${out_file} ${x_in} ${y_in} ${z_dim}
+		# ./poisson_solver ${in_file} ${out_file} ${x_in} ${y_in} ${z_dim}
+		if [ $? -ne 0 ]; then
+			exit
+		fi
 	done
 fi
